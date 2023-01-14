@@ -1,0 +1,586 @@
+---
+title: "The Inequity Z: Income Fairness Perceptions in Europe Across the Income Distribution"
+author:
+  - "Fabian Kalleitner"
+  - "Sandra Bohmann"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+  word_document:
+editor_options: 
+  chunk_output_type: console
+always_allow_html: true
+---
+
+```{css, echo = FALSE}
+caption {
+      color: black;
+      font-weight: normal;
+      font-size: 1.0em;
+    }
+```
+
+# Abstract
+
+This visualization uses data from the European Social Survey to examine income fairness evaluations of 17,605 respondents from 28 countries. Respondents evaluated the fairness of their own income as well as the fairness of the income of the top and bottom income decile in their country. Depicted on a single graph, these income fairness evaluations take on a Z-shaped form, which we call the "inequity Z.” The inequity Z reveals a surprising level of societal consensus within each country regarding the degree of unfairness of top and bottom incomes. With rising income, respondents consistently judge their own income to be less unfair. Across countries, the gap in fairness evaluations between top and bottom incomes is larger in countries where incomes are more unequal. Additionally, bottom incomes are judged to be more unfair in countries where their purchasing power is lower.
+
+### Keywords  
+income fairness, inequality, social justice, Europe
+
+---
+
+Growing or persisting economic inequality is a major issue in modern societies. Nevertheless, scientific evidence shows that people accept certain levels of inequality, favoring equity over equality (Starmans 2017). But how much inequality is fair, and is unfair inequality related to objective inequality? The normative approach to answer this question estimates unfair inequality based on justice principles, including equality of opportunity and freedom from poverty (Ahrens, 2022; Hufe et al. 2022). Instead, we take an empirical approach, using European Social Survey (ESS) data that asked individuals directly about their perceived fairness of own, bottom, and top incomes in a number of countries.  
+
+We use data from round 9 of the ESS, which was fielded in 2019 in 29 European countries. Respondents were asked to rate the fairness of their own gross income, as well as the fairness of earnings of the top and bottom gross income deciles of full-time employees in their country after being informed about the absolute values of these reference points in the respective national currency. Individual-level poststratification and design weights provided by the ESS are applied throughout the analyses. Our final sample includes only individuals currently employed or self-employed (n=17,605). Additional details are available in the [Online Supplement][Supplementary Material]; data access and replication code are available at [GITHUB](https://github.com/fabiankal).
+
+Figure 1 depicts all three fairness evaluations by respondents’ gross income in a single graph yielding a Z-shaped form that we call the “inequity Z”. The inequity Z symbolizes the three main characteristics of the relationship between respondents’ fairness evaluations and income: widespread agreement across different income groups that (1) bottom incomes are too low; and (2) top incomes are too high; as well as (3) a near linear increase in the fairness assessments of own income with rising levels of income. Most astonishingly, different income groups not only agree on the direction of the unfairness, but also on the degree of unfairness.  This is particularly true for the degree to which bottom-income earners are perceived to be unfairly underpaid.  
+
+```{r setup, echo = FALSE, warning = FALSE, message = FALSE}
+
+## WARNING: Remove the leading # to install packages below. (Only necessary once.) 
+
+#if (!require(tidyverse)) install.packages("tidyverse")
+#if (!require(haven)) install.packages("haven")
+#if (!require(srvyr)) install.packages("srvyr")
+#if (!require(grid)) install.packages("grid")
+#if (!require(knitr)) install.packages("knitr")
+#if (!require(rmarkdown)) install.packages("rmarkdown")
+#if (!require(ggrepel)) install.packages("ggrepel")
+#if (!require(ggpubr)) install.packages("ggpubr")
+
+library("tidyverse")
+library("haven")
+library("srvyr") 
+library("grid")
+library("knitr")
+library("rmarkdown")
+library("ggrepel")
+library("ggpubr")
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dpi = 600)
+
+#         own fair,  top fai  bot fair
+colors=c("#3d405b","#e07a5f","#81b29a")
+
+```
+
+```{r filepaths, echo = FALSE, warning = FALSE, message = FALSE}
+# Set the project directory to the current working directory.
+# Change the filepath to where the data was downloaded.
+projDir <- here::here()   # File path to this project's directory -> outputs will be saved in a subfolder called "output_Z" that has to be created beforehand
+dataDir <- "./../data/raw/" # File path to where data will be downloaded
+```
+
+```{r data import, echo = FALSE, warning = FALSE, message = FALSE}
+
+# ESS DATA AVAILABLE @ DOI: 10.21338/NSD-ESS9-2018
+
+data_raw = read_dta(file.path(dataDir,"ESS9e03_1.dta"))
+
+#alternatively you can download the ESS data using the essurvey package:
+#NOTE: THIS IS NOT POSSIBLE ANYOMERE DUE TO AN UPDATE @ESS 
+#(I leave the code here maybe it will work again in near the future)
+#if (!require(essurvey)) install.packages("essurvey")
+#library("essurvey")
+#import_rounds(9, ess_email = "EMAIL", format = "stata") # the email has to be registered @https://ess-search.nsd.no/
+#----------------------------
+
+# INFO OF INCOME CATEGORIES USED BY COUNTRY AVAILABE @ GITHUB LINK  
+#extracted from this ESS documentation only available as PDF: 
+# https://stessrelpubprodwe.blob.core.windows.net/data/round9/survey/ESS9_appendix_a2_e03_0.pdf
+
+ess_inc_cat = read.delim(file.path(dataDir,"ESS_income_categories.csv"), sep=",", header=TRUE,na.strings="")
+
+```
+
+```{r ess recoding, echo=FALSE, warning = FALSE, message = FALSE}
+
+dataset<-data_raw 
+
+dataset<-dataset %>% mutate(ID = row_number())
+
+# IMPORTING INFORMATION OF LOW AND HIGH INCOMES USED IN THE COUNTRY SPECIFIC QUESTIONNAIRE
+# SOURCE: https://stessrelpubprodwe.blob.core.windows.net/data/round9/survey/ESS9_appendix_a9_e03_0.pdf
+
+#g19 = fairness low income
+#g18 = fairness high income
+
+#Cyprus: According to the consultation, the value for G19 was to be 500. Instead, 550 was used. 
+#Czechia: G10a: Categories deviates from intended values in such a degree that the variable has been omitted from the international file.
+#Estonia: According to the consultation, the values for G18 and G19 were to be 2000 and 260,respectively. Instead, 2500 and 500 were used.
+#Italy: According to the consultation, the values for G18 and G19 were to be 46500 and 6500 per year. Instead, 4500 and 750 per month were used. 
+#Portugal: According to the consultation, the value for G18 and G19 were to be 3300 and 550. Instead, 3310 and 541 were used. 
+
+#Latvia: Data reflect income for top and bottom 10% of all employees in Latvia as no separate statistics on the income of full-time employees only is available.
+
+#Poland: They do include those working part-time, but the deciles were estimated after all individual earnings were rescaled to full-time earnings. +data that we have access to cover only firms with at least 10 employees
+
+dataset$income_high=NA
+dataset$income_low=NA
+  
+dataset$income_high[dataset$cntry=="AT"]<-5400
+dataset$income_high[dataset$cntry=="BE"]<-5600
+dataset$income_high[dataset$cntry=="BG"]<-1600
+dataset$income_high[dataset$cntry=="CH"]<-151000 #per year
+dataset$income_high[dataset$cntry=="CY"]<-4800
+dataset$income_high[dataset$cntry=="CZ"]<-53600
+dataset$income_high[dataset$cntry=="DE"]<-5800
+dataset$income_high[dataset$cntry=="DK"]<-735000 #per year
+dataset$income_high[dataset$cntry=="EE"]<-2500 #attention annotation ESS
+dataset$income_high[dataset$cntry=="ES"]<-3600
+dataset$income_high[dataset$cntry=="FI"]<-6000
+dataset$income_high[dataset$cntry=="FR"]<-4900
+dataset$income_high[dataset$cntry=="GB"]<-59000 # per year
+dataset$income_high[dataset$cntry=="HR"]<-14300
+dataset$income_high[dataset$cntry=="HU"]<-540000
+dataset$income_high[dataset$cntry=="IE"]<-81000 # per year
+dataset$income_high[dataset$cntry=="IS"]<-1130000
+dataset$income_high[dataset$cntry=="IT"]<-4500 #attention annotation ESS
+dataset$income_high[dataset$cntry=="LT"]<-2000
+dataset$income_high[dataset$cntry=="LV"]<-2000
+dataset$income_high[dataset$cntry=="ME"]<-1850
+dataset$income_high[dataset$cntry=="NL"]<-6000
+dataset$income_high[dataset$cntry=="NO"]<-800000 #per year
+dataset$income_high[dataset$cntry=="PL"]<-8100
+dataset$income_high[dataset$cntry=="PT"]<-3310 #attention annotation ESS
+dataset$income_high[dataset$cntry=="RS"]<-100000
+dataset$income_high[dataset$cntry=="SE"]<-48000
+dataset$income_high[dataset$cntry=="SI"]<-2900 
+dataset$income_high[dataset$cntry=="SK"]<-2550
+  
+dataset$income_low[dataset$cntry=="AT"]<-900
+dataset$income_low[dataset$cntry=="BE"]<-2000
+dataset$income_low[dataset$cntry=="BG"]<-300
+dataset$income_low[dataset$cntry=="CH"]<-41000 #per year
+dataset$income_low[dataset$cntry=="CY"]<-500
+dataset$income_low[dataset$cntry=="CZ"]<-14800
+dataset$income_low[dataset$cntry=="DE"]<-1700
+dataset$income_low[dataset$cntry=="DK"]<-306000 #per year
+dataset$income_low[dataset$cntry=="EE"]<-500 #attention annotation ESS
+dataset$income_low[dataset$cntry=="ES"]<-570
+dataset$income_low[dataset$cntry=="FI"]<-2400
+dataset$income_low[dataset$cntry=="FR"]<-1600
+dataset$income_low[dataset$cntry=="GB"]<-14000 # per year
+dataset$income_low[dataset$cntry=="HR"]<-4100
+dataset$income_low[dataset$cntry=="HU"]<-160000
+dataset$income_low[dataset$cntry=="IE"]<-19000 # per year
+dataset$income_low[dataset$cntry=="IS"]<-435000
+dataset$income_low[dataset$cntry=="IT"]<-750 #attention annotation ESS
+dataset$income_low[dataset$cntry=="LT"]<-300
+dataset$income_low[dataset$cntry=="LV"]<-450
+dataset$income_low[dataset$cntry=="ME"]<-300
+dataset$income_low[dataset$cntry=="NL"]<-2000
+dataset$income_low[dataset$cntry=="NO"]<-320000 #per year
+dataset$income_low[dataset$cntry=="PL"]<-2200
+dataset$income_low[dataset$cntry=="PT"]<-541 #attention annotation ESS
+dataset$income_low[dataset$cntry=="RS"]<-25000
+dataset$income_low[dataset$cntry=="SE"]<-24000
+dataset$income_low[dataset$cntry=="SI"]<-900 
+dataset$income_low[dataset$cntry=="SK"]<-250
+
+dataset$P90P10=dataset$income_high/dataset$income_low
+
+######################################income recoding
+
+#infqbst - Your [pay/pensions/social benefits], which frequency do you know best
+#table(as_factor(dataset$infqbst))
+#monthly most popular income therefore change to monthly income
+
+# *52/12-> factor from weekly to monthly income 
+# /12 -> factor from yearly to monthly income 
+
+#PERSONAL MONTHLY GROSS INCOME--------------------------------------------------
+
+#grspnum - What is your usual [weekly/monthly/annual] gross pay#################
+
+dataset$grspnum_monthly_local = ifelse(dataset$fvgabc == 1, dataset$grspnum,NA)    ##If code 1 at (FVGABC) -> some coding errors in iceland and Montenegro
+
+dataset<- dataset %>% mutate (grspnum_monthly_local = ifelse(infqbst == 1,grspnum_monthly_local * (52/12),
+                                 ifelse(infqbst == 3,grspnum_monthly_local / (12),grspnum_monthly_local))
+)
+
+# Bulgaria, Croatia, Czech Republic, Denmark, Hungary, Poland, Romania, and Sweden do not use the Euro 
+# Countries with high average incomes (> 30.000): SE RS NO IS  HU DK 
+# Calculate Euro-Pendent: e.g. average exchange rate in survey year (2018): (from https://www.exchangerates.org.uk)
+# BG 0.5112 EUR (2018) 0.5111 EUR (2019)
+# CZ 2018: 0.039 EUR.  2019: 0.039 EUR.
+# HR 2018: 0.1348 EUR.  2019: 0.1348 EUR
+# HU 2018: 0.0031 EUR.  2019: 0.0031 EUR.
+# PL 2018: 0.2347 EUR.  2019: 0.2327 EUR.
+# SE 2018: 0.0975 EUR.  2019: 0.0945 EUR.
+# N0 2018: 0.1041 EUR.  2019: 0.1015 EUR.
+# DK 2018: 0.1341 EUR.  2019: 0.1339 EUR.
+# RS 2018: 0.0085 EUR.  2019: 0.0085 EUR. 
+# IS 2018: 0.0079 EUR.  2019: 0.0073 EUR. 
+# CH 2018: 0.8661 EUR.  2019: 0.8991 EUR. 
+# MK 2018: 0.0162 EUR.  2019: 0.0163 EUR.
+# GB 2018: 1.1301 EUR. 
+
+# (info: this step is not necessary to calculate country specific income deciles)
+dataset<- dataset %>% mutate (grspnum_monthly = ifelse(cntry == "BG" ,grspnum_monthly_local*0.5011, ifelse(cntry == "HR", grspnum_monthly_local*0.1348, ifelse(cntry == "HU", grspnum_monthly_local*0.0031, ifelse(cntry == "PL", grspnum_monthly_local*0.2347, ifelse(cntry == "SE", grspnum_monthly_local*0.0975, ifelse(cntry == "NO", grspnum_monthly_local*0.1041, ifelse(cntry == "DK", grspnum_monthly_local*0.1341, ifelse(cntry == "RS", grspnum_monthly_local*0.0085, ifelse(cntry == "IS", grspnum_monthly_local*0.0079, ifelse(cntry == "CH", grspnum_monthly_local*0.8661, ifelse(cntry == "MK", grspnum_monthly_local*0.0162, ifelse(cntry == "CZ", grspnum_monthly_local*0.0390, ifelse(cntry == "GB", grspnum_monthly_local*1.1301, grspnum_monthly_local))))))))))))))
+
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#Generate full time equivalents in gross incomes
+dataset <- dataset %>% mutate(grspnum_ft=(grspnum_monthly/wkhtot)*40)
+
+
+#Generate gross income deciles per country = grspnum_decile
+dataset <- dataset %>% group_by(cntry) %>% mutate(grspnum_decile=ntile(grspnum_monthly, 10),
+                                                    grspnum_ft_decile=ntile(grspnum_ft, 10))
+
+
+#GROSS INCOME DECILE IMPUTE ANSWERS OF THOSE WHO USED CATEGORIES----------------
+
+#recoding continuous income variables into deciles according to the categories specified in the questionnaires
+
+dataset <- left_join(dataset, ess_inc_cat%>%filter(question=="G10a")%>%select(-c(category)), 
+              by = c("cntry" = "country","grsplet"="cat_num"))
+
+#table(dataset$ID[duplicated(dataset$ID)==TRUE])
+
+dataset <- dataset %>% mutate(grspnum_i = ifelse(!is.na(grspnum_monthly_local),grspnum_monthly_local,
+                                                     ifelse(infqbst==1,((weeklyL+weeklyH)/2) * (52/12),
+                                                     ifelse(infqbst==2,(monthlyL+monthlyH)/2,
+                                                     ifelse(infqbst==3,((annualL+annualH)/2) / (12),NA))))
+)
+
+#impute value for very rich (10. decile) from the continous variable
+dataset<-dataset %>% group_by(cntry) %>%
+  mutate(grspnum_i=ifelse(grsplet%in%10,median(grspnum_monthly_local[grspnum_decile==10],na.rm=TRUE),grspnum_i))
+
+#recalculate to dollar equivalent
+
+dataset<- dataset %>% mutate (grspnum_i = ifelse(cntry == "BG" ,grspnum_i*0.5011, ifelse(cntry == "HR", grspnum_i*0.1348, ifelse(cntry == "HU", grspnum_i*0.0031, ifelse(cntry == "PL", grspnum_i*0.2347, ifelse(cntry == "SE", grspnum_i*0.0975, ifelse(cntry == "NO", grspnum_i*0.1041, ifelse(cntry == "DK", grspnum_i*0.1341, ifelse(cntry == "RS", grspnum_i*0.0085, ifelse(cntry == "IS", grspnum_i*0.0079, ifelse(cntry == "CH", grspnum_i*0.8661, ifelse(cntry == "MK", grspnum_i*0.0162, ifelse(cntry == "CZ", grspnum_i*0.039, ifelse(cntry == "GB", grspnum_i*1.1301, grspnum_i))))))))))))))
+
+#Generate full time equivalents in gross incomes
+dataset <- dataset %>% mutate(grspnum_ft_i=(grspnum_i/wkhtot)*40)
+
+
+#Generate gross income deciles per country = grspnum_decile
+dataset <- dataset %>% group_by(cntry) %>% mutate(grspnum_i_decile=ntile(grspnum_i, 10),
+                                                    grspnum_ft_i_decile=ntile(grspnum_ft_i, 10))
+
+
+#COUNTRY LEVEL LOW INCOME LEVEL (P10)-------------------------------------------
+
+# calculate monthly rates for those who used yearly income in the questionnaire
+dataset<- dataset %>% mutate (income_low_m = ifelse(cntry %in% c("CH","DK","GB","IE","NO"), income_low/12,income_low),
+  
+# Calculate dollar equicalent using PPPs (purchasing power parities)
+# source: https://data.worldbank.org/indicator/PA.NUS.PPP
+  
+                                income_low_m_doller = ifelse(cntry == "AT" ,income_low_m/0.765403,
+                                                      ifelse(cntry == "BE" ,income_low_m/0.766407,
+                                                      ifelse(cntry == "BG" ,income_low_m/0.6801, 
+                                                      ifelse(cntry == "CH", income_low_m/1.178866, 
+                                                      ifelse(cntry == "CY", income_low_m/0.612439, 
+                                                      ifelse(cntry == "CZ", income_low_m/12.371528, 
+                                                      ifelse(cntry == "DE", income_low_m/0.735448, 
+                                                      ifelse(cntry == "DK", income_low_m/6.765997, 
+                                                      ifelse(cntry == "EE", income_low_m/0.538757, 
+                                                      ifelse(cntry == "ES", income_low_m/0.631798, 
+                                                      ifelse(cntry == "FI", income_low_m/0.853746, 
+                                                      ifelse(cntry == "FR", income_low_m/0.756166, 
+                                                      ifelse(cntry == "GB", income_low_m/0.687714, 
+                                                      ifelse(cntry == "HR", income_low_m/3.311037, 
+                                                      ifelse(cntry == "HU", income_low_m/139.092451,
+                                                      ifelse(cntry == "IE" ,income_low_m/0.792214,
+                                                      ifelse(cntry == "IS" ,income_low_m/140.970278,
+                                                      ifelse(cntry == "IT" ,income_low_m/0.681219, 
+                                                      ifelse(cntry == "LT", income_low_m/0.44662, 
+                                                      ifelse(cntry == "LV", income_low_m/0.489931, 
+                                                      ifelse(cntry == "ME", income_low_m/0.348355, 
+                                                      ifelse(cntry == "NL", income_low_m/0.776747, 
+                                                      ifelse(cntry == "NO", income_low_m/9.583999, 
+                                                      ifelse(cntry == "PL", income_low_m/1.748426, 
+                                                      ifelse(cntry == "PT", income_low_m/0.571227, 
+                                                      ifelse(cntry == "RS", income_low_m/41.004083, 
+                                                      ifelse(cntry == "SE", income_low_m/8.865881, 
+                                                      ifelse(cntry == "SI", income_low_m/0.567612, 
+                                                      ifelse(cntry == "SK", income_low_m/0.526001,
+                                                             income_low_m)))))))))))))))))))))))))))))
+                                )
+
+#grspfr - Would you say your gross pay is unfairly low, fair, or unfairly high
+
+#topinfr - Top 10% full-time employees in country, earning more than [amount], how fair
+
+#btminfr - Bottom 10% full-time employees in country, earning less than [amount], how fair
+
+
+#household income (personal income alternative)
+
+dataset$hhinc<-as.numeric(dataset$hinctnta)
+```
+
+```{r listwise deletion of missings, echo=FALSE, warning = FALSE, message = FALSE}
+
+#subset data for ggplots (including 1st and 10th decile)
+
+datasetggplot <- dataset %>% filter(pdwrk==1 & !is.na(cntry)&!is.na(grspfr)&!is.na(topinfr)&!is.na(btminfr)&!is.na(grspnum_ft_i_decile)) %>% select(anweight,pspwght,cntry,pdwrk,P90P10,income_low_m_doller,grspfr,topinfr,btminfr,idno,grspnum_ft_i_decile)
+
+data_N_ggplot<- datasetggplot %>% group_by(cntry) %>% tally() 
+#dataset %>% group_by(cntry) %>% tally() %>% summarise (ntot=sum(n)) #all in the sample
+#dataset %>% filter(pdwrk == 1) %>% group_by(cntry) %>% tally() %>% summarise (ntot=sum(n)) #only those working
+#datasetggplot %>% group_by(cntry) %>% tally() %>% summarise (ntot=sum(n)) #analytic sample
+
+#N=17605
+
+#alternative with household income
+
+datasetggplot2 <- dataset %>% filter(pdwrk==1 & !is.na(cntry)&!is.na(grspfr)&!is.na(topinfr)&!is.na(btminfr)&!is.na(hhinc)) %>% select(anweight,pspwght,cntry,pdwrk,P90P10,income_low_m_doller,grspfr,topinfr,btminfr,idno,hhinc)
+
+data_N_ggplot2<- datasetggplot2 %>% group_by(cntry) %>% tally() 
+#dataset %>% group_by(cntry) %>% tally() %>% summarise (ntot=sum(n)) #all in the sample
+#dataset %>% filter(pdwrk == 1) %>% group_by(cntry) %>% tally() %>% summarise (ntot=sum(n)) #only those working
+#datasetggplot2 %>% group_by(cntry) %>% tally() %>% summarise (ntot=sum(n)) #analytic sample
+
+#N=18737 --> nearly identical therefore the more appropriate personal income is used
+
+```
+
+```{r ggplot_inequityZ, echo=FALSE, warning = FALSE, message = FALSE, fig.cap = "**Figure 1:** Average fairness evaluation of own gross income (red), the lower bound of the top gross income decile (black), and of the upper bound of the bottom income decile (green) by country and respondents’ income position. Respondents were informed about the respective incomes values of the top and bottom income decile of full time employees and could evaluate the respective  incomes on a 9-point rating scale ranging from extremely unfairly too low (-4) to extremely unfairly too high (+4). Countries are categorized in 6 groups depending on the level of inequality as measured by the p90/p10 income ratio of full-time-employees (right axis). Within each inequality group, countries are sorted by the dollar-equivalized purchasing power of the bottom income decile of full-time employees.Source: European Social Survey Round 9 (ESS Eric, 2021), own calculations. Note: Information to replicate this figure using R is available in the Supplemental Material.",fig.align='center', fig.width=9, fig.height=9}
+
+# ALL COUNTRIES MEAN equivalized gross incomes  ++++++++++++++++++++++
+
+#Gross income fairness by country and decile------------------------------------
+
+#reorder cntry variable factor levels so that it increases with P90P10 inequality (to get visualizations by country in an inequality increasing order)
+datasetggplot$cntryP90P10 <- factor(datasetggplot$cntry,levels=levels(fct_reorder(datasetggplot$cntry, datasetggplot$P90P10)))
+datasetggplot$cntrylowinc <- factor(datasetggplot$cntry,levels=levels(fct_reorder(datasetggplot$cntry, datasetggplot$income_low_m_doller)))
+
+#### inequality ranking
+datasetggplot$cntryP90P10_n <- as.numeric(cut(as.numeric(datasetggplot$P90P10),
+                                        breaks = quantile(as.numeric(datasetggplot$P90P10), 
+                                                                     probs = seq(0, 1, length = 7), 
+                                                                     na.rm = TRUE,
+                                                                     type = 1),
+                                                   include.lowest = TRUE))
+
+datasetggplot<- datasetggplot %>% mutate(cntryP90P10_n2 = ifelse(cntryP90P10=="IS",1,
+                                                          ifelse(cntryP90P10=="SI"|cntryP90P10=="HU",2,
+                                                          ifelse(cntryP90P10=="PL"|cntryP90P10=="CH",3,
+                                                          ifelse(cntryP90P10=="LV"|cntryP90P10=="EE",4,
+                                                          ifelse(cntryP90P10=="PT"|cntryP90P10=="ME",5,cntryP90P10_n))))))
+
+
+#table(datasetggplot$cntrylowinc,datasetggplot$cntryP90P10_n2)
+
+cntryorder <- datasetggplot %>% group_by(cntryP90P10_n2) %>% summarise(cntryP90P10_n2=cntryP90P10_n2,
+                                                                 cntry=cntry,
+                                                                 cntrylowinc=cntrylowinc,
+                                                                 cntrylowinc_n=as.numeric(cntrylowinc)) %>% distinct()
+
+cntryorder <- cntryorder %>% group_by(cntryP90P10_n2) %>% arrange(cntrylowinc_n) %>% mutate(rank=order(cntrylowinc_n)) %>% ungroup() %>% select(cntry,rank)
+
+datasetggplot <- left_join(datasetggplot, cntryorder, by ="cntry")
+
+
+data_long <- gather(datasetggplot%>%ungroup%>%select(pspwght,grspnum_ft_i_decile,grspfr,topinfr,btminfr,cntry,cntryP90P10_n2,rank), condition, measurement, c(grspfr,topinfr,btminfr), factor_key=TRUE)
+data_long$measurement<-as.numeric(data_long$measurement)
+
+data_plot_long_N1<-data_long %>% 
+ group_by(cntry,condition) %>% tally()
+write.csv(data_plot_long_N1, "./../output_Z/gross_fairn_cntryP90P10_dec_cases_alt.csv", na = "NA")
+
+data_plot_long_mean1 <- data_long %>%
+  as_survey_design(weights = c(pspwght)) %>%
+  group_by(cntry,condition,grspnum_ft_i_decile) %>%
+  summarise(mean_measurement=survey_mean(as.numeric(measurement),vartype = c("se")),
+            cntryP90P10_n2=mean(cntryP90P10_n2),
+            rank=mean(rank)) %>% group_by(cntry,condition,grspnum_ft_i_decile) %>%
+     mutate(ymax=mean_measurement+1.96*mean_measurement_se, ymin=mean_measurement-1.96*mean_measurement_se)
+
+levels(data_plot_long_mean1$condition) <- c("Own income fairness", "Top income fairness", "Bottom income fairness")
+
+data_plot_long_mean1$condition<-fct_relevel(data_plot_long_mean1$condition,
+                                            "Top income fairness","Own income fairness","Bottom income fairness")
+
+p<-ggplot(data=data_plot_long_mean1, aes(x=grspnum_ft_i_decile,y=mean_measurement,color=condition)) +
+  geom_hline(yintercept=0, colour="grey77",alpha=.8) +
+  geom_text(aes(label=cntry),stat = 'identity',x=5.5,y=3.5,size=3,inherit.aes = FALSE,check_overlap = TRUE) +
+  geom_line(aes(group=condition, linetype=condition)) +
+  geom_ribbon(aes(ymin=ymin,ymax=ymax,fill=condition),alpha=0.3, colour = NA) +
+  facet_grid(cntryP90P10_n2~rank)+
+  theme_minimal(base_size = 13) +
+  scale_color_manual(values = colors) +
+  scale_fill_manual(values = colors) +
+  labs(x="gross income decile",y=expression("< 0 unfairly too low, 0 = fair, unfairly too high > 0"),color="",linetype="",fill="") +
+  scale_x_continuous(breaks=1:10,
+                     sec.axis = sec_axis(~ . , name = expression("bottom income within group "%->%""), breaks = NULL, labels = NULL)) +
+  scale_y_continuous(limits=c(-4.1,4),breaks=c(-2,0,2),
+                     sec.axis = sec_axis(~ . , name = expression("P90/P10 inequality group"%->%""), breaks = NULL, labels = NULL)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "grey77", fill=NA, size=.5),
+        strip.text.x = element_blank(),
+        legend.position = c(0.8, 0.08), # c(0,0) bottom left, c(1,1) top-right.
+        legend.text=element_text(size=12)
+        )
+
+g = ggplotGrob(p)
+
+pos1 <- grep(pattern = "panel-6-5", g$layout$name)
+pos2 <- grep(pattern = "panel-6-4", g$layout$name)
+g$grobs[[pos1]] <- nullGrob()
+g$grobs[[pos2]] <- nullGrob()
+
+g$layout[g$layout$name == "axis-b-5", c("t", "b")] = c(17, 19)
+g$layout[g$layout$name == "axis-b-4", c("t", "b")] = c(17, 19)
+
+grid.newpage()
+grid.draw(g)
+
+ggsave(file.path(projDir,"output_Z/figure_1.png"),g, units="in", width=9, height=9, type="cairo-png")
+ggsave(file.path(projDir,"output_Z/figure_1.png"),g, units="in", width=9, height=9, type="cairo-png")
+```
+
+While the Z shape can be replicated in every country in the ESS, the spread of the Z differs between countries: in more equal countries, the fairness-gap between top- and bottom income fairness evaluations is smaller as both approach on average the level of absolute fairness (Pearson’s correlation: 0.57, p=0.002). In countries where the lowest income decile has a comparatively low purchasing power (i.e. where relative poverty approaches absolute poverty) bottom income earners are evaluated as more underrewarded compared to countries where low income earners have comparatively higher levels of purchasing power (Pearson’s correlation: 0.82, p<0.001). 
+
+Previous research found that meritocratic beliefs tend to increase with inequality (Heisermann et al. 2017; Mijs 2021). However, the visualization above shows that, confronted with information about inequality, respondents with very diverse personal incomes provide astonishingly similar fairness assessments of bottom and top incomes. Moreover, cross country differences suggest that respondent’s adapt their fairness evaluations to the amount of inequality and poverty in their country. Thus, when confronted with information about actual income levels, perceived inequity increases with inequality.
+
+# References
+
+Ahrens, Leo. 2022. “Unfair Inequality and the Demand for Redistribution: Why Not All Inequality Is Equal.” *Socio-Economic Review* 20(2):463–87. doi: 10.1093/ser/mwaa051.
+
+European Social Survey European Research Infrastructure (ESS ERIC). 2021. ESS9 - integrated file, edition 3.1 [Data set]. Sikt - Norwegian Agency for Shared Services in Education and Research.https://doi.org/10.21338/ESS9E03_1
+
+Heiserman, Nicholas, and Brent Simpson. 2017. “Higher Inequality Increases the Gap in the Perceived Merit of the Rich and Poor.” *Social Psychology Quarterly* 80(3):243–53. doi: 10.1177/0190272517711919.
+
+Hufe, Paul, Ravi Kanbur, and Andreas Peichl. 2022. “Measuring Unfair Inequality: Reconciling Equality of Opportunity and Freedom from Poverty.” *The Review of Economic Studies* 89(6):3345–80. doi: 10.1093/restud/rdab101.
+
+Mijs, Jonathan J. B. 2021. “The Paradox of Inequality: Income Inequality and Belief in Meritocracy Go Hand in Hand.” *Socio-Economic Review* 19(1):7–35. doi: 10.1093/ser/mwy051.
+
+Starmans, Christina, Mark Sheskin, and Paul Bloom. 2017. “Why People Prefer Unequal Societies.” *Nature Human Behaviour* 1(4):0082. doi: 10.1038/s41562-017-0082.
+
+
+# Supplementary Material
+
+The full replication code to rebuild the visualization is available [here](https://github.com/fabiankal).
+
+## Data
+
+Analyses are based on the ninth wave of the European Social Survey (ESS). The ESS is an international, bi-annually repeated cross-sectional survey study. In its ninth wave, which was fielded between September 2018 and January 2020, the ESS included a special module on perceptions of justice and fairness, collecting information from almost 50,000 respondents in 29 European countries. Surveys are conducted via CAPI in the respective language of the country. 
+
+## Measures
+
+### Own/top/bottom income fairness
+
+Respondents’ fairness evaluations of their own income was measured by the question: “Would you say your gross pay is unfairly low, fair, or unfairly high?”. Respondents could answer on a 9-point rating scale ranging from extremely unfairly too low (-4)  to extremely unfairly too high (+4), with 0 indicating that the respondent considers the evaluated income as fair. The answer scale shown to the respondents is depicted in Figure A1.
+
+```{r ESS-question, echo=FALSE, warning = FALSE, message = FALSE, fig.align = 'center', out.width = "70%", fig.cap = "**Figure A1:** Response card for evaluation of own income. Source: European Social Survey 2018. ESS Round 9 Source Questionnaire. London: ESS ERIC Headquarters c/o City, University of London. available at: https://www.europeansocialsurvey.org/docs/round9/fieldwork/source/ESS9_source_questionnaires.pdf"}
+
+knitr::include_graphics(here::here("code", "ESS_question.png"))
+
+```
+
+Using the same scale, respondents were also asked to assess the fairness of the top and bottom 10% personal gross incomes of employees working full time in their country. The question wording also included the amount of these reference points in the national currency. Thus, answers are not biased by limited information on the actual earnings of these reference points. We also note that the focus on full time employees should also minimize the role of different beliefs about the deservingness of the poor.
+
+### Income deciles
+
+We use the full time equalized personal gross income decile as our main indicator for the respondent’s income position. This is calculated using respondent’s “usual weekly/monthly/annual gross pay before tax and compulsory deductions” as measured in their local currency. We chose this income indicator as it is closest to the income respondents were asked to assess in the items on the perceived fairness of incomes. We standardize the answers to the monthly income as this is the most frequently reported category. Afterwards, we divide the answers by respondents self-reported total weekly working hours and standardize it to 40 hours per week. In addition, we impute the mid-point of the corresponding income category for respondents who did not provide income in absolute values but responded to a subsequent question asking for incomes in 10 categories representing countrywide income deciles. We use the median income of the top income decile of the continuous question as a proxy for the level of the top open-ended income decile. Afterwards, we calculate country-specific income deciles to generate a measure for respondents’ relative income positions. 
+
+### Inequality and bottom income level
+
+The level of actual inequality in a country is approximated by the p90/p10 ratio using the upper bound of the bottom income decile and the lower bound of the top income decile of full-time employees in the respective country.  We do not calculate these income thresholds ourselves but use the same values that were included in the ESS questionnaire to assess respondents’ fairness evaluations of top and bottom incomes. Note, however, that due to the limited availability of coherent measures for these reference incomes, their sources varied by country (although most used the EU-SILC). For this reason and due to certain “outliers” (e.g. Austria and Slovakia have very low income estimates that do not seem to reflect the sources and income definition reported), the rankings of inequalities by country would look different if we had used other more coherent measures of inequality. 
+
+The “bottom income  level” is measured using the upper bound of the bottom income decile  of full-time employees in each country. Again, we do use the values that were used in the ESS questionnaire but transform these to dollar equivalents using purchasing power parities (World Bank 2022) to gain a measure of low income that is comparable across countries. 
+
+## Sample
+
+We use the full set of countries available to us as of ESS’s 3.1 release of the data, except for Cyprus, for which information on work hours is missing (see ESS9 Data Documentation Report). Because we focus primarily on those actively participating in the labor market, we only use individuals currently employed or self-employed. This approach is also necessary because the wording of all justice items we are using differed for those retired or receiving social security benefits. After listwise deletion of missing values, the sample comprises 17,605 individuals from 28 countries. Country samples range from 259 cases in Montenegro to 1036 cases in Germany (see Table A1).
+
+```{r sample, echo=FALSE, warning = FALSE, message = FALSE}
+
+kable(data_N_ggplot, caption = "**Table A1:** Final number of observations by country")
+```
+
+## Further tests
+
+```{r correlations, echo=FALSE, warning = FALSE, message = FALSE, fig.cap = "**Figure A2:** Correlation between inequality and fairness gap (a), bottom income level and bottom income fairness (b). Fairness evaluations can range from extremely unfairly too low (-4) to extremely unfairly too high (+4). Bottom income levels represent dollar equivalents calculated using purchasing power parities. The correlation coefficient r shows the Pearson’s correlation. Source: European Social Survey Round 9 (ESS Eric, 2021), own calculations.", fig.align='center', fig.width=9, fig.height=5}
+
+datasetcor <- datasetggplot %>% ungroup %>%
+  select(pspwght,topinfr,btminfr,cntry,P90P10,income_low_m_doller)
+
+datasetcor$topinfr<-as.numeric(datasetcor$topinfr)
+datasetcor$btminfr<-as.numeric(datasetcor$btminfr)
+
+data_cor_long_mean <- datasetcor %>%
+  as_survey_design(weights = c(pspwght)) %>%
+  group_by(cntry) %>%
+  summarise(mean_topinfr=survey_mean(topinfr,vartype = c("se")),
+            mean_btminfr=survey_mean(btminfr,vartype = c("se")),
+            P90P10=mean(P90P10),
+            income_low_m_doller=mean(income_low_m_doller)) %>% group_by(cntry) %>%
+     mutate(mean_diff=abs(mean_topinfr-mean_btminfr))
+
+#Pearson's correlation between P90/P10 inequality and differences in fairness (top-bottom income)
+test1<-cor.test(data_cor_long_mean$P90P10, data_cor_long_mean$mean_diff, method=c("pearson")) 
+
+#Pearson's correlation without Slovakia 
+data_cor_long_mean_woSK <- data_cor_long_mean %>% filter(cntry!="SK")
+test1_woSK<-cor.test(data_cor_long_mean_woSK$P90P10, data_cor_long_mean_woSK$mean_diff, method=c("pearson")) 
+
+#Pearson's correlation between bottom income level and bottom income fairness
+test2<-cor.test(data_cor_long_mean$income_low_m_doller, data_cor_long_mean$mean_btminfr, method=c("pearson"))
+
+models <- list("inequality" = test1,
+               "poverty" = test2)
+
+
+var1<-c("P90P10","income_low_m_doller")
+var2<-c("mean_diff","mean_btminfr")
+
+output <- data.frame(var1, var2,
+                    rbind(test1[c("estimate","p.value","statistic","method")],
+                          test2[c("estimate","p.value","statistic","method")]), 
+                     stringsAsFactors=FALSE)
+
+output$estimate<-round(as.numeric(output$estimate),2)
+output$statistic<-round(as.numeric(output$statistic),2)
+output$p.value<-round(as.numeric(output$p.value),3)
+
+p0<-ggplot(data_cor_long_mean, 
+       aes(P90P10,mean_diff)) +
+  geom_point(aes()) +
+  geom_text_repel(aes(label = cntry), size = 3,segment.size=.2,segment.alpha=.5,show.legend = FALSE) +
+  geom_text(x = 2, y = 5.3,label=paste0("r = ",output$estimate[1],", t = ",output$statistic[1],", p = ",output$p.value[1]), hjust = 0,size = 3.5) +
+  geom_smooth(aes(),method=lm, alpha=.1) +
+  theme_classic() +
+  scale_colour_brewer(palette = "Set2") +
+  theme(panel.grid.major = element_blank(),
+        legend.position="bottom",legend.box = "horizontal") +
+  labs(x = "P90/P10 inequality", y= "absolute difference btw. top & bottom income fairness", shape="", color="")+
+  scale_x_continuous(limits = c(2,10.5),breaks = seq(2, 10, by = 2)) +
+  scale_y_continuous(limits = c(1,6),breaks = seq(1, 6, by = 1)) 
+
+p1<-ggplot(data_cor_long_mean, 
+       aes(income_low_m_doller,mean_btminfr)) +
+  geom_point(aes()) +
+  geom_text_repel(aes(label = cntry), size = 3,segment.size=.2,segment.alpha=.5,show.legend = FALSE) +
+  geom_text(x = 400, y = -.5,label=paste0("r = ",output$estimate[2],", t = ",output$statistic[2],", p < ",output$p.value[2]+0.001), hjust = 0,size = 3.5) +
+  geom_smooth(aes(),method=lm, alpha=.1) +
+  theme_classic() +
+  scale_colour_brewer(palette = "Set2") +
+  theme(panel.grid.major = element_blank(),
+        legend.position="bottom",legend.box = "horizontal") +
+  labs(x = "bottom income level [in $]", y= "bottom income fairness", shape="", color="")+
+  scale_x_continuous(limits = c(400,4000),breaks = seq(400, 4000, by = 800)) +
+  scale_y_continuous(limits = c(-3.5,0),breaks = seq(-3, 0, by = 1)) 
+
+g2<-ggarrange(p0,p1,labels = c("a)", "b)"))
+
+g2
+
+#ggsave(file.path(projDir,"output_Z/figure_A2.png"),g2, units="in", width=9, height=5, type="cairo-png")
+
+```
+
+Note that Slovakia is a clear outlier with regard to income inequality but excluding it from the sample only increases the correlation (r=0.66). Most likely the ESS miscalculated the reported income deciles for Slovakia. A likely error could be that they used all employees instead of only those working full-time. However, according to the ESS reports, all employees have only been used by Latvia (because other data was not available) and by Poland (which, however, calculated full-time equivalents before estimating the deciles). Hence, we emphasize that our results should be interpreted as evidence how people react to information of inequality and not necessarily how they react to inequality itself. 
+
+## References
+
+World Bank. 2022. PPP conversion factor, GDP (LCU per international $). https://data.worldbank.org/indicator/PA.NUS.PPP
+
+<br/><br/>
+<br/><br/>
