@@ -437,7 +437,7 @@ ggsave(file.path(projDir,"output_Z/figure_1.png"),g, units="in", width=9, height
 
 While the Z shape can be replicated in every country in the ESS, the spread of the Z differs between countries: in more equal countries, the fairness-gap between top- and bottom income fairness evaluations is smaller as both approach on average the level of absolute fairness (Pearson’s correlation: 0.57, p=0.002). In countries where the lowest income decile has a comparatively low purchasing power (i.e. where relative poverty approaches absolute poverty) bottom income earners are evaluated as more underrewarded compared to countries where low income earners have comparatively higher levels of purchasing power (Pearson’s correlation: 0.82, p<0.001). 
 
-Previous research found that meritocratic beliefs tend to increase with inequality (Heisermann et al. 2017; Mijs 2021). However, the visualization above shows that, confronted with information about inequality, respondents with very diverse personal incomes provide astonishingly similar fairness assessments of bottom and top incomes. Moreover, cross country differences suggest that respondent’s adapt their fairness evaluations to the amount of inequality and poverty in their country. Thus, when confronted with information about actual income levels, perceived inequity increases with inequality.
+Previous research found that meritocratic beliefs tend to increase with inequality (Heisermann et al. 2017; Mijs 2021). However, the visualization above shows that, confronted with information about inequality, respondents with very diverse personal incomes provide astonishingly similar fairness assessments of bottom and top incomes. Moreover, cross country differences suggest that respondents adapt their fairness evaluations to the amount of inequality and poverty in their country. Thus, when confronted with information about actual income levels, perceived inequity increases with inequality.
 
 # References
 
@@ -470,7 +470,7 @@ Respondents’ fairness evaluations of their own income was measured by the ques
 
 ```{r ESS-question, echo=FALSE, warning = FALSE, message = FALSE, fig.align = 'center', out.width = "70%", fig.cap = "**Figure A1:** Response card for evaluation of own income. Source: European Social Survey 2018. ESS Round 9 Source Questionnaire. London: ESS ERIC Headquarters c/o City, University of London. available at: https://www.europeansocialsurvey.org/docs/round9/fieldwork/source/ESS9_source_questionnaires.pdf"}
 
-knitr::include_graphics(here::here("code", "ESS_question.png"))
+knitr::include_graphics(here::here("ESS_question.png"))
 
 ```
 
