@@ -22,18 +22,18 @@ caption {
 
 # Abstract
 
-This visualization uses data from the European Social Survey to examine income fairness evaluations of 17,605 respondents from 28 countries. Respondents evaluated the fairness of their own income as well as the fairness of the income of the top and bottom income decile in their country. Depicted on a single graph, these income fairness evaluations take on a Z-shaped form, which we call the "inequity Z.” The inequity Z reveals a surprising level of societal consensus within each country regarding the degree of unfairness of top and bottom incomes. With rising income, respondents consistently judge their own income to be less unfair. Across countries, the gap in fairness evaluations between top and bottom incomes is larger in countries where incomes are more unequal. Additionally, bottom incomes are judged to be more unfair in countries where their purchasing power is lower.
+Using data from the European Social Survey, this visualization examines income fairness evaluations of 17,605 respondents from 28 countries. Respondents evaluated the fairness of their own income as well as the fairness of the income of the top and bottom income decile in their country. Depicted on a single graph, these income fairness evaluations take on a Z-shaped form, which we call the "inequity Z". The inequity Z reveals an extensive level of consensus within each country regarding the degree of unfairness of top and bottom incomes. With rising income, respondents consistently judge their own income to be less unfair. Across countries, the gap in fairness ratings between top and bottom incomes rises with income inequality. Perceived underreward of bottom incomes is more pronounced in countries where bottom incomes are objectively lower. Thus, our visualization suggests, when confronted with information about actual income levels, perceived inequity increases with inequality.
 
 ### Keywords  
 income fairness, inequality, social justice, Europe
 
 ---
 
-Growing or persisting economic inequality is a major issue in modern societies. Nevertheless, scientific evidence shows that people accept certain levels of inequality, favoring equity over equality (Starmans 2017). But how much inequality is fair, and is unfair inequality related to objective inequality? The normative approach to answer this question estimates unfair inequality based on justice principles, including equality of opportunity and freedom from poverty (Ahrens, 2022; Hufe et al. 2022). Instead, we take an empirical approach, using European Social Survey (ESS) data that asked individuals directly about their perceived fairness of own, bottom, and top incomes in a number of countries.  
+Scientific evidence shows that people accept certain levels of inequality, favoring equity over equality (Starmans 2017). But how much inequality is fair, and is unfair inequality related to objective inequality? The normative approach to answering this question estimates unfair inequality based on justice principles, including equality of opportunity and freedom from poverty (Ahrens 2022; Hufe et al. 2022). Instead, we take an empirical approach, using European Social Survey (ESS) data that asked individuals directly about their perceived fairness of own, bottom, and top incomes in a number of countries.  
 
-We use data from round 9 of the ESS, which was fielded in 2019 in 29 European countries. Respondents were asked to rate the fairness of their own gross income, as well as the fairness of earnings of the top and bottom gross income deciles of full-time employees in their country after being informed about the absolute values of these reference points in the respective national currency. Individual-level poststratification and design weights provided by the ESS are applied throughout the analyses. Our final sample includes only individuals currently employed or self-employed (n=17,605). Additional details are available in the [Online Supplement][Supplementary Material]; data access and replication code are available at [GITHUB](https://github.com/fabiankal).
+We use data from round 9 of the ESS fielded in 2019 in 29 European countries. Respondents were asked to rate the fairness of their own gross income, as well as the fairness of earnings of the top and bottom gross income deciles of full-time employees in their country on a scale ranging from extremely unfairly too low (-4) to extremely unfairly too high (+4). Importantly, respondents were informed about the absolute values of these top and bottom incomes ahead of the fairness evaluation. Our final sample includes only individuals currently employed or self-employed (n=17,605). Additional details are available in the [Online Supplement][Supplementary Material]; data access and replication code are available at [https://github.com/fabiankal/inequityZ](https://github.com/fabiankal/inequityZ).
 
-Figure 1 depicts all three fairness evaluations by respondents’ gross income in a single graph yielding a Z-shaped form that we call the “inequity Z”. The inequity Z symbolizes the three main characteristics of the relationship between respondents’ fairness evaluations and income: widespread agreement across different income groups that (1) bottom incomes are too low; and (2) top incomes are too high; as well as (3) a near linear increase in the fairness assessments of own income with rising levels of income. Most astonishingly, different income groups not only agree on the direction of the unfairness, but also on the degree of unfairness.  This is particularly true for the degree to which bottom-income earners are perceived to be unfairly underpaid.  
+Figure 1 depicts all three fairness evaluations by respondents’ gross income in a single graph yielding a Z-shaped form that we call the “inequity Z”. The Z symbolizes the three main characteristics of the relationship between respondents’ fairness evaluations and income: widespread agreement across different income groups that (1) bottom incomes are too low; and (2) top incomes are too high; as well as (3) a nearly linear increase in fairness ratings of own income with rising levels of income. Most astonishingly, different income groups not only agree on the direction of the unfairness but, also on the degree of unfairness. This is particularly true for the degree to which bottom-income earners are perceived to be unfairly underpaid. Contrary to that, top incomes are evaluated slightly more just in higher income deciles in several countries, potentially revealing increasing levels of beliefs in meritocracy with rising levels of income.  
 
 ```{r setup, echo = FALSE, warning = FALSE, message = FALSE}
 
@@ -47,6 +47,7 @@ Figure 1 depicts all three fairness evaluations by respondents’ gross income i
 #if (!require(rmarkdown)) install.packages("rmarkdown")
 #if (!require(ggrepel)) install.packages("ggrepel")
 #if (!require(ggpubr)) install.packages("ggpubr")
+#if (!require(countrycode)) install.packages("countrycode")
 
 library("tidyverse")
 library("haven")
@@ -56,9 +57,10 @@ library("knitr")
 library("rmarkdown")
 library("ggrepel")
 library("ggpubr")
+library("countrycode")
 
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(dpi = 600)
+knitr::opts_chunk$set(dpi = 320)
 
 #         own fair,  top fai  bot fair
 colors=c("#3d405b","#e07a5f","#81b29a")
@@ -332,6 +334,7 @@ data_N_ggplot<- datasetggplot %>% group_by(cntry) %>% tally()
 datasetggplot2 <- dataset %>% filter(pdwrk==1 & !is.na(cntry)&!is.na(grspfr)&!is.na(topinfr)&!is.na(btminfr)&!is.na(hhinc)) %>% select(anweight,pspwght,cntry,pdwrk,P90P10,income_low_m_doller,grspfr,topinfr,btminfr,idno,hhinc)
 
 data_N_ggplot2<- datasetggplot2 %>% group_by(cntry) %>% tally() 
+data_N_ggplot2$country <- countrycode(data_N_ggplot2$cntry, "iso2c", "country.name")
 #dataset %>% group_by(cntry) %>% tally() %>% summarise (ntot=sum(n)) #all in the sample
 #dataset %>% filter(pdwrk == 1) %>% group_by(cntry) %>% tally() %>% summarise (ntot=sum(n)) #only those working
 #datasetggplot2 %>% group_by(cntry) %>% tally() %>% summarise (ntot=sum(n)) #analytic sample
@@ -340,7 +343,7 @@ data_N_ggplot2<- datasetggplot2 %>% group_by(cntry) %>% tally()
 
 ```
 
-```{r ggplot_inequityZ, echo=FALSE, warning = FALSE, message = FALSE, fig.cap = "**Figure 1:** Average fairness evaluation of own gross income (red), the lower bound of the top gross income decile (black), and of the upper bound of the bottom income decile (green) by country and respondents’ income position. Respondents were informed about the respective incomes values of the top and bottom income decile of full time employees and could evaluate the respective  incomes on a 9-point rating scale ranging from extremely unfairly too low (-4) to extremely unfairly too high (+4). Countries are categorized in 6 groups depending on the level of inequality as measured by the p90/p10 income ratio of full-time-employees (right axis). Within each inequality group, countries are sorted by the dollar-equivalized purchasing power of the bottom income decile of full-time employees.Source: European Social Survey Round 9 (ESS Eric, 2021), own calculations. Note: Information to replicate this figure using R is available in the Supplemental Material.",fig.align='center', fig.width=9, fig.height=9}
+```{r ggplot_inequityZ, echo=FALSE, warning = FALSE, message = FALSE, fig.cap = "**Figure 1:** Average fairness evaluation of own gross income (red), the lower bound of the top gross income decile (black), and the upper bound of the bottom income decile (green) by country and respondents’ income position. Respondents were informed about the respective absolute income levels of the top and bottom income decile of full-time employees in their country and could evaluate the respective incomes on a 9-point rating scale ranging from extremely unfairly too low (-4) to extremely unfairly too high (+4). Individual-level poststratification and design weights provided by the ESS are applied throughout the analyses. Countries are categorized into six groups depending on the level of inequality as measured by the P90/P10 income ratio of full-time employees (right axis). Within each inequality group, countries are sorted by the dollar-equivalized purchasing power of the bottom income decile of full-time employees. Source: European Social Survey Round 9 (ESS Eric, 2021), own calculations. Note: Additional details are available in the ONLINE SUPPLEMENT. A replication package for this figure using R is available at https://github.com/fabiankal/inequityZ. The data can be downloaded from the ESS website (the link is provided in the replication package).",fig.align='center', fig.width=9, fig.height=9}
 
 # ALL COUNTRIES MEAN equivalized gross incomes  ++++++++++++++++++++++
 
@@ -376,13 +379,14 @@ cntryorder <- cntryorder %>% group_by(cntryP90P10_n2) %>% arrange(cntrylowinc_n)
 
 datasetggplot <- left_join(datasetggplot, cntryorder, by ="cntry")
 
-
+#calculate the average fairness ratings by income decile and country
 data_long <- gather(datasetggplot%>%ungroup%>%select(pspwght,grspnum_ft_i_decile,grspfr,topinfr,btminfr,cntry,cntryP90P10_n2,rank), condition, measurement, c(grspfr,topinfr,btminfr), factor_key=TRUE)
 data_long$measurement<-as.numeric(data_long$measurement)
 
-data_plot_long_N1<-data_long %>% 
- group_by(cntry,condition) %>% tally()
-write.csv(data_plot_long_N1, "./../output_Z/gross_fairn_cntryP90P10_dec_cases_alt.csv", na = "NA")
+# option: export table including the number of observations by country (see appendix)
+# data_plot_long_N1<-data_long %>% 
+#  group_by(cntry,condition) %>% tally()
+# write.csv(data_plot_long_N1, file.path(projDir,"output_Z/gross_fairn_cntryP90P10_dec_cases_alt.csv"), na = "NA")
 
 data_plot_long_mean1 <- data_long %>%
   as_survey_design(weights = c(pspwght)) %>%
@@ -392,32 +396,59 @@ data_plot_long_mean1 <- data_long %>%
             rank=mean(rank)) %>% group_by(cntry,condition,grspnum_ft_i_decile) %>%
      mutate(ymax=mean_measurement+1.96*mean_measurement_se, ymin=mean_measurement-1.96*mean_measurement_se)
 
+#Change labels for the graph:
+
 levels(data_plot_long_mean1$condition) <- c("Own income fairness", "Top income fairness", "Bottom income fairness")
 
 data_plot_long_mean1$condition<-fct_relevel(data_plot_long_mean1$condition,
                                             "Top income fairness","Own income fairness","Bottom income fairness")
 
+data_plot_long_mean1$country <- countrycode(data_plot_long_mean1$cntry, "iso2c", "country.name")
+
+data_plot_long_mean1$cntryP90P10_n2<-as.factor(data_plot_long_mean1$cntryP90P10_n2)
+levels(data_plot_long_mean1$cntryP90P10_n2)<-c("cntryP90P10_n2#1","cntryP90P10_n2#2","cntryP90P10_n2#3","cntryP90P10_n2#4","cntryP90P10_n2#5","cntryP90P10_n2#6")
+
+data_plot_long_mean1$rank<-as.factor(data_plot_long_mean1$rank)
+levels(data_plot_long_mean1$rank)<-c("rank#1","rank#2","rank#3","rank#4","rank#5")
+
+hospital_names <- c(
+                    `rank#1` = "lower level of\nbottom incomes",
+                    `rank#2` = "",
+                    `rank#3` = "",
+                    `rank#4` = "",
+                    `rank#5` = "higher level of\nbottom incomes",
+                    
+                    `cntryP90P10_n2#1` = "1 - low inequality",
+                    `cntryP90P10_n2#2` = "2",
+                    `cntryP90P10_n2#3` = "3",
+                    `cntryP90P10_n2#4` = "4",
+                    `cntryP90P10_n2#5` = "5",
+                    `cntryP90P10_n2#6` = "6 - high inequality"
+                    )
+
+#Plot the data
+
 p<-ggplot(data=data_plot_long_mean1, aes(x=grspnum_ft_i_decile,y=mean_measurement,color=condition)) +
   geom_hline(yintercept=0, colour="grey77",alpha=.8) +
-  geom_text(aes(label=cntry),stat = 'identity',x=5.5,y=3.5,size=3,inherit.aes = FALSE,check_overlap = TRUE) +
+  geom_text(aes(label=country),stat = 'identity',x=5.5,y=3.5,size=3,inherit.aes = FALSE,check_overlap = TRUE) +
   geom_line(aes(group=condition, linetype=condition)) +
   geom_ribbon(aes(ymin=ymin,ymax=ymax,fill=condition),alpha=0.3, colour = NA) +
-  facet_grid(cntryP90P10_n2~rank)+
+  facet_grid(cntryP90P10_n2~rank, labeller = as_labeller(hospital_names))+
   theme_minimal(base_size = 13) +
   scale_color_manual(values = colors) +
   scale_fill_manual(values = colors) +
   labs(x="gross income decile",y=expression("< 0 unfairly too low, 0 = fair, unfairly too high > 0"),color="",linetype="",fill="") +
   scale_x_continuous(breaks=1:10,
-                     sec.axis = sec_axis(~ . , name = expression("bottom income within group "%->%""), breaks = NULL, labels = NULL)) +
+                     sec.axis = sec_axis(~ . , name = expression("PPP-adjusted level of bottom incomes within the inequality group" %->% "")
+                                         , breaks = NULL, labels = NULL)) + 
   scale_y_continuous(limits=c(-4.1,4),breaks=c(-2,0,2),
-                     sec.axis = sec_axis(~ . , name = expression("P90/P10 inequality group"%->%""), breaks = NULL, labels = NULL)) +
+                     sec.axis = sec_axis(~ . , name = expression("P90/P10 income inequality group " %->% "")
+                                         , breaks = NULL, labels = NULL)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.border = element_rect(colour = "grey77", fill=NA, size=.5),
-        strip.text.x = element_blank(),
         legend.position = c(0.8, 0.08), # c(0,0) bottom left, c(1,1) top-right.
         legend.text=element_text(size=12)
         )
-
 g = ggplotGrob(p)
 
 pos1 <- grep(pattern = "panel-6-5", g$layout$name)
@@ -431,13 +462,16 @@ g$layout[g$layout$name == "axis-b-4", c("t", "b")] = c(17, 19)
 grid.newpage()
 grid.draw(g)
 
-ggsave(file.path(projDir,"output_Z/figure_1.png"),g, units="in", width=9, height=9, type="cairo-png")
-ggsave(file.path(projDir,"output_Z/figure_1.png"),g, units="in", width=9, height=9, type="cairo-png")
+# export the graph using different formats
+ggsave(file.path(projDir,"output_Z/figure_1.png"),g, units="in", width=9, height=9, type="cairo-png", dpi=320)
+ggsave(file.path(projDir,"output_Z/figure_1.tiff"),g, units="in", width=9, height=9, dpi=320)
+ggsave(file.path(projDir,"output_Z/figure_1.pdf"),g, units="in", width=9, height=9)
+ggsave(file.path(projDir,"output_Z/figure_1.svg"),g, units="in", width=9, height=9)
 ```
 
-While the Z shape can be replicated in every country in the ESS, the spread of the Z differs between countries: in more equal countries, the fairness-gap between top- and bottom income fairness evaluations is smaller as both approach on average the level of absolute fairness (Pearson’s correlation: 0.57, p=0.002). In countries where the lowest income decile has a comparatively low purchasing power (i.e. where relative poverty approaches absolute poverty) bottom income earners are evaluated as more underrewarded compared to countries where low income earners have comparatively higher levels of purchasing power (Pearson’s correlation: 0.82, p<0.001). 
+While the Z shape can be replicated in every country in the ESS, the spread of the Z differs between countries: in more equal countries, the fairness gap between top- and bottom income fairness ratings is smaller as both, on average, approach the level of absolute fairness (Pearson’s correlation: 0.57, p=0.002). In countries where the bottom income decile has a comparatively low purchasing power (i.e. where relative poverty approaches absolute poverty) bottom income earners are evaluated as more underrewarded compared to countries where the purchasing power of low incomes is higher (Pearson’s correlation: 0.82, p<0.001). 
 
-Previous research found that meritocratic beliefs tend to increase with inequality (Heisermann et al. 2017; Mijs 2021). However, the visualization above shows that, confronted with information about inequality, respondents with very diverse personal incomes provide astonishingly similar fairness assessments of bottom and top incomes. Moreover, cross country differences suggest that respondents adapt their fairness evaluations to the amount of inequality and poverty in their country. Thus, when confronted with information about actual income levels, perceived inequity increases with inequality.
+Previous research suggests that the link between inequity and inequality might be weak because meritocratic beliefs tend to increase with inequality (Heisermann et al. 2017; Mijs 2021) and because fairness assessments are anchored in the status quo (Trump 2018). We find that, despite these mechanisms, respondents’ fairness evaluations still change with the amount of inequality and poverty in their country. Thus, when confronted with information about actual income levels, perceived inequity increases with inequality. Moreover, respondents with very diverse personal incomes largely agree that bottom incomes are much too low and top incomes are slightly too high. Thus, different income classes provide astonishingly similar fairness assessments of bottom and top incomes in many European countries.
 
 # References
 
@@ -453,10 +487,11 @@ Mijs, Jonathan J. B. 2021. “The Paradox of Inequality: Income Inequality and B
 
 Starmans, Christina, Mark Sheskin, and Paul Bloom. 2017. “Why People Prefer Unequal Societies.” *Nature Human Behaviour* 1(4):0082. doi: 10.1038/s41562-017-0082.
 
+Trump, Kris-Stella. 2018. “Income Inequality Influences Perceptions of Legitimate Income Differences.” *British Journal of Political Science* 48(4):929–52. doi: 10.1017/S0007123416000326.
 
 # Supplementary Material
 
-The full replication code to rebuild the visualization is available [here](https://github.com/fabiankal).
+The full replication code to rebuild the visualization is available [here](https://github.com/fabiankal/inequityZ).
 
 ## Data
 
